@@ -44,10 +44,29 @@ class LLMServiceError(RuntimeError):
     """Raised when the LLM backend cannot fulfil a request."""
 
 
+class LLMUnavailableError(LLMServiceError):
+    """Raised when the backend or the configured model is unavailable."""
+
+
 class LLMService(ABC):
     """Contract every LLM backend must satisfy."""
 
     name: str = "unknown"
+
+    @property
+    def model_name(self) -> str:
+        """Identifier of the chat model used for responses."""
+        return "unknown"
+
+    def check_ready(self) -> None:
+        """Verify the backend can serve requests.
+
+        Providers should override this to raise `LLMUnavailableError` with
+        actionable guidance (for example, how to start the server or pull the
+        configured model).
+        """
+        if not self.is_available():
+            raise LLMUnavailableError(f"{self.name} is not available.")
 
     @abstractmethod
     def generate(
@@ -57,6 +76,8 @@ class LLMService(ABC):
         system: str | None = None,
         temperature: float = 0.2,
         max_tokens: int | None = None,
+        top_p: float | None = None,
+        num_predict: int | None = None,
     ) -> LLMResponse:
         """Run a single-turn completion."""
 

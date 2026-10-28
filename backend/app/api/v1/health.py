@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import DbSession, LLMServiceDep
 from app.core.config import get_settings
@@ -16,7 +17,7 @@ def _database_status(session: DbSession) -> str:
     try:
         session.execute(text("SELECT 1"))
         return "connected"
-    except Exception:  # pragma: no cover - depends on runtime state
+    except SQLAlchemyError:  # pragma: no cover - depends on runtime state
         return "unavailable"
 
 

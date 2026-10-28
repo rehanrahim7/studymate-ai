@@ -13,11 +13,18 @@ from app.services.llm.base import (
     LLMResponse,
     LLMService,
     LLMServiceError,
+    LLMUnavailableError,
     Message,
     MessageRole,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalise_tag(tag: str) -> str:
+    """Ollama treats a bare model name as `:latest`."""
+    tag = tag.strip()
+    return tag if ":" in tag else f"{tag}:latest"
 
 
 class OllamaLLMService(LLMService):
@@ -53,6 +60,27 @@ class OllamaLLMService(LLMService):
     def _base(self) -> str:
         return self._settings.ollama_base_url.rstrip("/")
 
+    @property
+    def model_name(self) -> str:
+        return self._settings.ollama_chat_model
+
+    def check_ready(self) -> None:
+        """Fail early with instructions the user can act on."""
+        if not self.is_available():
+            raise LLMUnavailableError(
+                f"Ollama is not reachable at {self._base}. Start it with `ollama serve`, "
+                f"then pull the model with `ollama pull {self.model_name}`."
+            )
+
+        installed = self.list_models()
+        if not any(
+            _normalise_tag(name) == _normalise_tag(self.model_name) for name in installed
+        ):
+            raise LLMUnavailableError(
+                f"Ollama is running but model '{self.model_name}' is not installed. "
+                f"Run `ollama pull {self.model_name}` and try again."
+            )
+
     # -- LLMService -------------------------------------------------------
 
     def generate(
@@ -62,12 +90,20 @@ class OllamaLLMService(LLMService):
         system: str | None = None,
         temperature: float = 0.2,
         max_tokens: int | None = None,
+        top_p: float | None = None,
+        num_predict: int | None = None,
     ) -> LLMResponse:
         messages: list[Message] = []
         if system:
             messages.append(Message(role=MessageRole.SYSTEM, content=system))
         messages.append(Message(role=MessageRole.USER, content=prompt))
-        return self.chat(messages, temperature=temperature, max_tokens=max_tokens)
+        return self.chat(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            num_predict=num_predict,
+        )
 
     def chat(
         self,
@@ -75,6 +111,8 @@ class OllamaLLMService(LLMService):
         *,
         temperature: float = 0.2,
         max_tokens: int | None = None,
+        top_p: float | None = None,
+        num_predict: int | None = None,
     ) -> LLMResponse:
         payload: dict[str, Any] = {
             "model": self._settings.ollama_chat_model,
@@ -82,8 +120,11 @@ class OllamaLLMService(LLMService):
             "stream": False,
             "options": {"temperature": temperature},
         }
-        if max_tokens is not None:
-            payload["options"]["num_predict"] = max_tokens
+        if top_p is not None:
+            payload["options"]["top_p"] = top_p
+        predict = num_predict if num_predict is not None else max_tokens
+        if predict is not None:
+            payload["options"]["num_predict"] = predict
 
         data = self._post("/api/chat", payload)
         return LLMResponse(

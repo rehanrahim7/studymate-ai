@@ -53,3 +53,13 @@ export function formatCompact(value: number): string {
     value,
   )
 }
+
+/** Format a saved study-set timestamp with both date and time. */
+export function formatStudyDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}

@@ -7,9 +7,17 @@
  */
 
 import type {
+  ChatRequest,
+  ChatResponse,
+  Conversation,
+  ConversationDetail,
   DocumentDetail,
   DocumentListResponse,
+  FlashcardDeck,
+  FlashcardDeckListResponse,
   HealthResponse,
+  QuizDetail,
+  QuizListResponse,
 } from '@/types'
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000/api/v1'
@@ -92,6 +100,20 @@ export function deleteDocument(id: number): Promise<void> {
 }
 
 /**
+ * `POST /chat` — ask a question grounded in the selected documents.
+ *
+ * The response always carries the real retrieved passages in `sources`; the
+ * backend never lets the model invent citations.
+ */
+export function askQuestion(payload: ChatRequest): Promise<ChatResponse> {
+  return request<ChatResponse>('/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
  * `POST /documents` — upload a PDF.
  *
  * Uses XMLHttpRequest because the Fetch API cannot report upload progress.
@@ -148,4 +170,106 @@ export function uploadDocument(
 
     xhr.send(form)
   })
+}
+
+// Conversations
+export function listConversations(): Promise<Conversation[]> {
+  return request<Conversation[]>('/conversations')
+}
+
+export function createConversation(title?: string, documentIds: number[] = []): Promise<Conversation> {
+  return request<Conversation>('/conversations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, document_ids: documentIds }),
+  })
+}
+
+export function getConversation(id: number): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/conversations/${id}`)
+}
+
+export function updateConversation(id: number, title: string): Promise<Conversation> {
+  return request<Conversation>(`/conversations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+}
+
+export function deleteConversation(id: number): Promise<void> {
+  return request<void>(`/conversations/${id}`, { method: 'DELETE' })
+}
+
+// Study tools
+export function generateSummary(documentId: number): Promise<{ summary: string }> {
+  return request<{ summary: string }>('/study/summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id: documentId }),
+  })
+}
+
+export function generateFlashcards(
+  documentId: number,
+  count = 10,
+): Promise<FlashcardDeck> {
+  return request<FlashcardDeck>('/study/flashcards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id: documentId, count }),
+  })
+}
+
+export function generateQuiz(documentId: number, count = 5): Promise<QuizDetail> {
+  return request<QuizDetail>('/study/quiz', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id: documentId, count }),
+  })
+}
+
+export function listFlashcardDecks(
+  limit = 20,
+  offset = 0,
+  signal?: AbortSignal,
+): Promise<FlashcardDeckListResponse> {
+  return request<FlashcardDeckListResponse>(
+    `/study/flashcards?limit=${limit}&offset=${offset}`,
+    { signal },
+  )
+}
+
+export function getFlashcardDeck(id: number, signal?: AbortSignal): Promise<FlashcardDeck> {
+  return request<FlashcardDeck>(`/study/flashcards/${id}`, { signal })
+}
+
+export function deleteFlashcardDeck(id: number): Promise<void> {
+  return request<void>(`/study/flashcards/${id}`, { method: 'DELETE' })
+}
+
+export function listQuizzes(
+  limit = 20,
+  offset = 0,
+  signal?: AbortSignal,
+): Promise<QuizListResponse> {
+  return request<QuizListResponse>(`/study/quizzes?limit=${limit}&offset=${offset}`, {
+    signal,
+  })
+}
+
+export function getQuiz(id: number, signal?: AbortSignal): Promise<QuizDetail> {
+  return request<QuizDetail>(`/study/quizzes/${id}`, { signal })
+}
+
+export function submitQuiz(id: number, answers: string[]): Promise<QuizDetail> {
+  return request<QuizDetail>(`/study/quizzes/${id}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers }),
+  })
+}
+
+export function deleteQuiz(id: number): Promise<void> {
+  return request<void>(`/study/quizzes/${id}`, { method: 'DELETE' })
 }

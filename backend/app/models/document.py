@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import enum
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.embedding import ChunkEmbedding, DocumentIndex
 
 
 def _utcnow() -> datetime:
@@ -22,6 +24,57 @@ class DocumentStatus(enum.StrEnum):
     PROCESSING = "processing"
     READY = "ready"
     FAILED = "failed"
+
+
+class Conversation(Base):
+    """A chat conversation with persistent history."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), default="New Chat")
+    document_ids: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    messages: Mapped[list[Message]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    def get_document_ids(self) -> list[int]:
+        try:
+            data = json.loads(self.document_ids)
+            if isinstance(data, list):
+                return [int(x) for x in data]
+            return []
+        except (TypeError, ValueError):
+            return []
+
+    def set_document_ids(self, ids: list[int]) -> None:
+        self.document_ids = json.dumps(ids)
+
+
+class Message(Base):
+    """A message in a conversation."""
+
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(32))  # 'user' or 'assistant'
+    content: Mapped[str] = mapped_column(Text)
+    sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of sources
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    llm_used: Mapped[bool] = mapped_column(Integer, default=0)  # SQLite doesn't have bool
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
 class Document(Base):
@@ -55,6 +108,9 @@ class Document(Base):
     chunks: Mapped[list[DocumentChunk]] = relationship(
         back_populates="document", cascade="all, delete-orphan", lazy="selectin"
     )
+    index_state: Mapped[DocumentIndex | None] = relationship(
+        back_populates="document", cascade="all, delete-orphan", uselist=False, lazy="selectin"
+    )
 
     @property
     def is_ready(self) -> bool:
@@ -78,7 +134,7 @@ class DocumentPage(Base):
 
 
 class DocumentChunk(Base):
-    """A retrieval chunk. Embeddings are added in the RAG phase."""
+    """A retrieval chunk; its embedding lives in `chunk_embeddings`."""
 
     __tablename__ = "document_chunks"
 
@@ -92,5 +148,8 @@ class DocumentChunk(Base):
     token_estimate: Mapped[int] = mapped_column(Integer, default=0)
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+    embedding: Mapped[ChunkEmbedding | None] = relationship(
+        back_populates="chunk", cascade="all, delete-orphan", uselist=False
+    )
 
     __table_args__ = (Index("ix_chunks_doc_ordinal", "document_id", "ordinal"),)

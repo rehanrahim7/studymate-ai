@@ -36,24 +36,28 @@ const STUDY_TOOLS = [
     description: 'Ask a question and get an answer grounded in the pages you uploaded.',
     icon: MessagesSquare,
     to: '/chat',
+    footnote: 'Grounded answers with page citations.',
   },
   {
     title: 'Summaries',
     description: 'Condense a chapter into a structured, readable overview.',
     icon: ScrollText,
     to: '/summaries',
+    footnote: 'Structured overview with key concepts.',
   },
   {
     title: 'Flashcards',
     description: 'Convert key definitions into flashcards you can actually revise with.',
     icon: Layers,
     to: '/flashcards',
+    footnote: 'Flip through a generated revision deck.',
   },
   {
     title: 'Quizzes',
     description: 'Generate multiple-choice questions to test what you have learned.',
     icon: CircleHelp,
     to: '/quizzes',
+    footnote: 'Score your answers with explanations.',
   },
 ]
 
@@ -209,8 +213,8 @@ export function DashboardPage() {
                     title={tool.title}
                     description={tool.description}
                     icon={tool.icon}
-                    status="planned"
-                    footnote="Unlocks when the RAG pipeline is connected."
+                    status="available"
+                    footnote={tool.footnote}
                     onClick={() => navigate(tool.to)}
                   />
                 ))}

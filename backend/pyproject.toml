@@ -2,7 +2,7 @@
 name = "studymate-api"
 version = "0.1.0"
 description = "StudyMate AI backend — RAG-powered study assistant for academic PDFs."
-readme = "../README.md"
+readme = { text = "FastAPI backend for StudyMate AI. See the repository README for setup instructions.", content-type = "text/markdown" }
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "fastapi>=0.115.0",
@@ -19,6 +19,7 @@ dependencies = [
 # Heavy ML dependencies (torch, sentence-transformers, faiss).
 # Installed on demand with: pip install -e ".[rag]"
 rag = [
+    "numpy>=1.26",
     "sentence-transformers>=3.2.1",
     "faiss-cpu>=1.9.0",
 ]

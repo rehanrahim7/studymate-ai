@@ -34,6 +34,7 @@ def init_db() -> None:
 
     settings.storage_dir.mkdir(parents=True, exist_ok=True)
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.index_dir.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
 
 

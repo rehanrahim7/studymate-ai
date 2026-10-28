@@ -43,6 +43,8 @@ class Settings(BaseSettings):
         default_factory=lambda: [
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
         ]
     )
 
@@ -52,19 +54,31 @@ class Settings(BaseSettings):
     # --- Storage ---------------------------------------------------------
     storage_dir: Path = BACKEND_DIR / "storage"
     upload_dir: Path = BACKEND_DIR / "storage" / "uploads"
+    index_dir: Path = BACKEND_DIR / "storage" / "indexes"
     max_upload_size_mb: int = 25
 
     # --- LLM (Ollama) ----------------------------------------------------
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_chat_model: str = "llama3.1:8b"
     ollama_embed_model: str = "nomic-embed-text"
-    ollama_timeout_seconds: float = 120.0
+    ollama_timeout_seconds: float = 600.0
 
     # --- Retrieval -------------------------------------------------------
     embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_device: str = "cpu"
+    embedding_batch_size: int = Field(default=32, ge=1)
     chunk_size: int = 1000
     chunk_overlap: int = 150
-    retrieval_top_k: int = 5
+    retrieval_top_k: int = Field(default=5, ge=1, le=20)
+    retrieval_min_score: float = Field(default=0.2, ge=-1.0, le=1.0)
+    retrieval_max_documents: int = Field(default=10, ge=1)
+
+    # --- Answer generation ----------------------------------------------
+    answer_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    answer_max_tokens: int = Field(default=512, ge=1)
+    answer_top_p: float = Field(default=0.9, ge=0.0, le=1.0)
+    answer_num_predict: int | None = Field(default=None, ge=1)
+    answer_context_chunks: int | None = Field(default=None, ge=1, le=20)
 
     @field_validator("cors_origins", mode="before")
     @classmethod

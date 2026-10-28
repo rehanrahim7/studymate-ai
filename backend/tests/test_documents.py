@@ -103,6 +103,6 @@ def test_timestamps_are_serialised_as_utc(client: TestClient, sample_pdf: Path) 
         ).json()
 
     for key in ("created_at", "updated_at"):
-        parsed = datetime.fromisoformat(created[key].replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(created[key])
         assert parsed.tzinfo is not None, f"{key} is missing a timezone"
         assert parsed.utcoffset() == timedelta(0), f"{key} is not UTC"

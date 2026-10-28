@@ -5,16 +5,19 @@ from __future__ import annotations
 import re
 import uuid
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.models.document import Document, DocumentChunk, DocumentPage, DocumentStatus
+from app.models.study import FlashcardDeck, Quiz
 from app.schemas.document import DocumentDetail, DocumentListResponse, DocumentSummary
 from app.services.pdf.extractor import PDFExtractionError, extract_pdf_text
 from app.services.rag.chunking import chunk_pages
+from app.services.rag.indexer import delete_document_index
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -56,7 +59,9 @@ def list_documents(session: DbSession) -> DocumentListResponse:
     status_code=status.HTTP_201_CREATED,
     summary="Upload a PDF",
 )
-async def upload_document(session: DbSession, file: UploadFile = File(...)) -> DocumentDetail:
+async def upload_document(
+    session: DbSession, file: Annotated[UploadFile, File(...)]
+) -> DocumentDetail:
     """Accept a PDF, extract its text and index it for retrieval.
 
     Text is extracted with PyMuPDF; pages and chunks are persisted so the
@@ -159,5 +164,14 @@ def delete_document(document_id: int, session: DbSession) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.")
 
     Path(document.stored_path).unlink(missing_ok=True)
+    session.execute(
+        update(FlashcardDeck)
+        .where(FlashcardDeck.source_document_id == document_id)
+        .values(source_document_id=None)
+    )
+    session.execute(
+        update(Quiz).where(Quiz.source_document_id == document_id).values(source_document_id=None)
+    )
     session.delete(document)
     session.commit()
+    delete_document_index(document_id, get_settings())

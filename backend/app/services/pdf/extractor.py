@@ -75,7 +75,8 @@ def extract_pdf_text(path: Path) -> ExtractedDocument:
 
     try:
         document = pymupdf.open(path)  # type: ignore[no-untyped-call]
-    except Exception as exc:  # pragma: no cover - depends on malformed input
+    except Exception as exc:
+        # pragma: no cover - depends on malformed input
         raise PDFExtractionError(f"Could not open PDF: {exc}") from exc
 
     with document:
@@ -86,7 +87,8 @@ def extract_pdf_text(path: Path) -> ExtractedDocument:
         for index in range(document.page_count):
             try:
                 raw = document.load_page(index).get_text("text")  # type: ignore[no-untyped-call]
-            except Exception as exc:  # pragma: no cover - corrupt page
+            except Exception as exc:  # noqa: BLE001 - PyMuPDF raises backend-specific errors
+                # pragma: no cover - corrupt page
                 logger.warning("Failed to read page %s of %s: %s", index + 1, path.name, exc)
                 raw = ""
             text = _normalise(raw)
@@ -116,5 +118,6 @@ def get_pdf_metadata(path: Path) -> dict[str, str | int | None]:
                 "author": meta.get("author") or None,
                 "page_count": document.page_count,
             }
-    except Exception:  # pragma: no cover - metadata is best-effort
+    except Exception:  # noqa: BLE001 - metadata is best-effort
+        # pragma: no cover - metadata is best-effort
         return {"title": None, "author": None, "page_count": 0}
